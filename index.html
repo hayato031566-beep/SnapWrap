@@ -1,64 +1,41 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GISTLIST / 3.0</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@900&display=swap');
-        body { background: #fff; color: #000; font-family: 'Inter', sans-serif; text-transform: uppercase; }
-        .b-grid { border: 4px solid #000; border-radius: 0; }
-        .b-btn { border: 4px solid #000; transition: all 0.05s; cursor: pointer; }
-        .b-btn:active { transform: translate(2px, 2px); }
-    </style>
-</head>
-<body class="p-4 md:p-12 max-w-4xl mx-auto min-h-screen">
+<script>
+    async function execute(type) {
+        const text = document.getElementById('inputText').value;
+        if (!text) return;
 
-    <header class="mb-12 border-b-8 border-black pb-4">
-        <h1 class="text-7xl font-black tracking-tighter italic">GISTLIST</h1>
-        <p class="text-xs font-black">ENGINE_3.0_PREVIEW</p>
-    </header>
+        const loading = document.getElementById('loading');
+        const outputText = document.getElementById('outputText');
+        const resArea = document.getElementById('resArea');
 
-    <main class="space-y-6">
-        <textarea id="inputText" class="w-full h-64 p-6 b-grid text-2xl font-black outline-none" placeholder="INSERT_DATA"></textarea>
-        
-        <div class="grid grid-cols-2 gap-4">
-            <button onclick="run('summary')" class="b-btn py-6 text-2xl font-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">EXTRACT</button>
-            <button onclick="run('action')" class="b-btn py-6 text-2xl font-black bg-black text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">ACTION</button>
-        </div>
+        loading.classList.remove('hidden');
+        resArea.classList.add('hidden');
 
-        <div id="loading" class="hidden font-black text-xl animate-pulse text-center py-10">BOOTING_3.0...</div>
-
-        <div id="resArea" class="hidden b-grid p-8 bg-black text-white font-black text-3xl leading-none tracking-tighter">
-            <div id="outputText"></div>
-        </div>
-    </main>
-
-    <script>
-        async function run(type) {
-            const text = document.getElementById('inputText').value;
-            if (!text) return;
-            document.getElementById('loading').classList.remove('hidden');
-            document.getElementById('resArea').classList.add('hidden');
-
-            try {
-                const res = await fetch('/api/gist', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text, type })
-                });
-                const data = await res.json();
-                
-                // バックエンドが必ず result を返すようにしたので、ここで undefined は起きない
-                document.getElementById('outputText').innerText = data.result;
-                document.getElementById('resArea').classList.remove('hidden');
-            } catch (e) {
-                alert("FATAL_ERROR");
-            } finally {
-                document.getElementById('loading').classList.add('hidden');
+        try {
+            const res = await fetch('/api/gist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, type })
+            });
+            const data = await res.json();
+            
+            if (data.result) {
+                // 成功：そのまま表示
+                outputText.innerText = data.result;
+                resArea.classList.remove('hidden');
+            } else {
+                // 無料枠の制限（429エラー）が出た場合の処理
+                const errorMsg = data.error || "ENGINE_ERROR";
+                if (errorMsg.includes("quota")) {
+                    outputText.innerText = "RATE_LIMIT_HIT: PLEASE WAIT 5 SECONDS.";
+                } else {
+                    outputText.innerText = "ERROR: " + errorMsg;
+                }
+                resArea.classList.remove('hidden');
             }
+        } catch (e) {
+            alert("NETWORK_ERROR");
+        } finally {
+            loading.classList.add('hidden');
         }
-    </script>
-</body>
-</html>
+    }
+</script>
