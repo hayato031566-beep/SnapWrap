@@ -5,42 +5,47 @@ export default async function handler(req, res) {
   const { text, type } = req.body;
   const apiKey = process.env.GEMINI_API_KEY;
 
-  // 1.5 Flash（安定版）を使用
-  const model = "gemini-1.5-flash";
+  if (!apiKey) return res.status(500).json({ result: "API KEY MISSING" });
 
-  // 不自然な言葉（AI語）を禁止する超具体的な指示
-  const systemPrompt = type === 'summary' 
-    ? `
-      Tell me the core points of the text below. 
-      - STRICT RULES: 
-        1. NO "In summary," "Here are the points," or "The text discusses..." 
-        2. NO formal "AI-speak." 
-        3. Use plain, everyday English. 
-        4. Just state the facts directly. 
-      Text: ${text}`
-    : `
-      Based on the text, what should I do? 
-      - Give me exactly ONE concrete instruction. 
-      - Maximum 10 words. 
-      - NO "You should..." or "It is recommended to..." 
-      - Just the verb and the object (e.g., "Call the bank" or "Ignore the hype").
-      Text: ${text}`;
+  // 1.5ではなく、お前が指定した「3.0（Gemini 3 Flash Preview）」
+  const model = "gemini-3-flash-preview";
+
+  // indx.com風：文章を禁止し、剥き出しのデータだけを出力させる
+  const systemPrompt = `
+    - You are a minimalist data extraction engine (Gemini 3.0).
+    - NO sentences. NO intro/outro. NO "In summary" or "Next step".
+    - Raw, cold facts only.
+    - Style: Brutalist, direct, no-fluff.
+    - Format: Raw labels.`;
+
+  const userPrompt = type === 'summary' 
+    ? `${systemPrompt}\n\nExtract the core 3-5 facts from this text. Max 5 words per line. Be blunt: ${text}`
+    : `${systemPrompt}\n\nGive me ONE urgent command from this text. Max 5 words. Verb first. Be a boss: ${text}`;
 
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: systemPrompt }] }]
+        contents: [{ parts: [{ text: userPrompt }] }],
+        generationConfig: {
+          temperature: 0.1, // 3.0の知能を無駄遣いせず、正確に。
+          maxOutputTokens: 500,
+        }
       })
     });
 
     const data = await response.json();
-    const result = data.candidates[0].content.parts[0].text;
     
-    // 前後の余計な空白や改行を削って返す
+    // 3.0のレスポンス階層。ここでundefinedが出ないようチェック
+    if (!data.candidates || !data.candidates[0]) {
+      throw new Error("EMPTY_RESPONSE_FROM_3.0");
+    }
+
+    const result = data.candidates[0].content.parts[0].text;
     res.status(200).json({ result: result.trim() });
+
   } catch (error) {
-    res.status(500).json({ result: "Error" });
+    res.status(500).json({ result: "ENGINE_ERROR_3.0" });
   }
 }
