@@ -4,48 +4,40 @@ export default async function handler(req, res) {
   const { text, type } = req.body;
   const apiKey = process.env.GEMINI_API_KEY;
 
-  if (!apiKey) return res.status(500).json({ error: "KEY_MISSING_IN_VERCEL" });
+  if (!apiKey) return res.status(500).json({ error: "Vercelの環境変数に GEMINI_API_KEY が入っていないぞ。" });
 
-  // これこそが、お前の指定した 3.0 FLASH PREVIEW
   const model = "gemini-3-flash-preview";
-
-  // indxスタイル：AIの「丁寧さ」を徹底的に排除するプロンプト
-  const prompt = `
-[STRICT_MODE: RAW_DATA_ONLY / ALL_CAPS / NO_FLUFF]
-TASK: ${type === 'summary' ? 'EXTRACT_3_TO_5_CORE_FACTS' : 'GIVE_ONE_URGENT_COMMAND'}
-INPUT: ${text}
-OUTPUT:`;
+  // 3.0の知能を縛り付け、AI語を殺すプロンプト
+  const prompt = `[SYSTEM: RAW DATA ONLY / NO SENTENCES / ALL CAPS]\n\nTASK: ${type === 'summary' ? 'EXTRACT 3 CORE FACTS' : 'GIVE ONE COMMAND'}\nINPUT: ${text}\nOUTPUT:`;
 
   try {
-    // 3.0 Previewには v1beta エンドポイントが最も安定して動く
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0, // 3.0の知能を正確に、冷徹に出力させる
-          maxOutputTokens: 500
-        }
+        generationConfig: { temperature: 0.1, maxOutputTokens: 200 }
       })
     });
 
     const data = await response.json();
 
+    // 原因1: API側からの拒否（キー間違い等）をキャッチ
     if (data.error) {
-      return res.status(500).json({ error: data.error.message });
+      return res.status(500).json({ error: `GOOGLE_API_ERROR: ${data.error.message}` });
     }
 
+    // 原因2: レスポンス階層の安全な取得
     const result = data.candidates?.[0]?.content?.parts?.[0]?.text;
     
     if (!result) {
-      return res.status(500).json({ error: "EMPTY_RESULT_FROM_3.0" });
+      // 安全に「何が起きたか」を返す
+      return res.status(500).json({ error: "AIからの返答が空だ。安全フィルターに引っかかった可能性がある。" });
     }
 
-    // 全て大文字、無駄な空白を消して返す
     res.status(200).json({ result: result.trim().toUpperCase() });
 
   } catch (error) {
-    res.status(500).json({ error: "FETCH_FAILURE" });
+    res.status(500).json({ error: `FETCH_FAILURE: ${error.message}` });
   }
 }
