@@ -3,80 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GistList - Gemini Power</title>
+    <title>GISTLIST / 3.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #ffffff; color: #111827; font-family: sans-serif; }
-        .input-area { min-height: 280px; border: 2px solid #f3f4f6; border-radius: 20px; transition: all 0.2s; }
-        .input-area:focus { outline: none; border-color: #10b981; background-color: #f9fafb; }
-        .btn-bounce:active { transform: scale(0.97); }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@900&display=swap');
+        body { background: #fff; color: #000; font-family: 'Inter', sans-serif; text-transform: uppercase; }
+        .b-grid { border: 4px solid #000; border-radius: 0; }
+        .b-btn { border: 4px solid #000; transition: all 0.05s; cursor: pointer; }
+        .b-btn:active { transform: translate(2px, 2px); }
     </style>
 </head>
-<body class="p-4 max-w-lg mx-auto mb-24">
-    <header class="py-10 text-center">
-        <h1 class="text-4xl font-black tracking-tighter text-green-600">GistList</h1>
-        <p class="text-gray-400 mt-2 font-medium">Free AI Summaries by Gemini 1.5 Flash</p>
+<body class="p-4 md:p-12 max-w-4xl mx-auto min-h-screen">
+
+    <header class="mb-12 border-b-8 border-black pb-4">
+        <h1 class="text-7xl font-black tracking-tighter italic">GISTLIST</h1>
+        <p class="text-xs font-black">ENGINE_3.0_PREVIEW</p>
     </header>
 
     <main class="space-y-6">
-        <textarea id="inputText" class="w-full p-6 input-area text-base shadow-sm" placeholder="Paste anything here..."></textarea>
-
+        <textarea id="inputText" class="w-full h-64 p-6 b-grid text-2xl font-black outline-none" placeholder="INSERT_DATA"></textarea>
+        
         <div class="grid grid-cols-2 gap-4">
-            <button onclick="processAI('summary')" class="btn-bounce bg-green-600 text-white font-black py-6 rounded-2xl shadow-xl hover:bg-green-700 transition-all">
-                Gist it
-            </button>
-            <button onclick="processAI('action')" class="btn-bounce bg-black text-white font-black py-6 rounded-2xl shadow-xl hover:bg-gray-800 transition-all">
-                Next Action
-            </button>
+            <button onclick="run('summary')" class="b-btn py-6 text-2xl font-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">EXTRACT</button>
+            <button onclick="run('action')" class="b-btn py-6 text-2xl font-black bg-black text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">ACTION</button>
         </div>
 
-        <div id="loading" class="hidden py-12 text-center">
-            <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-green-500 border-t-transparent"></div>
-            <p class="text-sm font-black text-green-600 mt-3 uppercase tracking-widest">Processing...</p>
-        </div>
+        <div id="loading" class="hidden font-black text-xl animate-pulse text-center py-10">BOOTING_3.0...</div>
 
-        <div id="outputContainer" class="hidden mt-10">
-            <div class="p-8 bg-green-50 rounded-[32px] border-2 border-green-100 relative shadow-inner">
-                <div id="outputText" class="text-gray-900 text-lg leading-relaxed whitespace-pre-wrap font-medium"></div>
-                <button onclick="copyText()" class="mt-8 w-full py-4 bg-white border-2 border-green-200 rounded-2xl text-green-600 font-black text-sm hover:border-green-400 transition-all">
-                    COPY RESULT
-                </button>
-            </div>
+        <div id="resArea" class="hidden b-grid p-8 bg-black text-white font-black text-3xl leading-none tracking-tighter">
+            <div id="outputText"></div>
         </div>
     </main>
 
     <script>
-        async function processAI(type) {
+        async function run(type) {
             const text = document.getElementById('inputText').value;
-            const loading = document.getElementById('loading');
-            const outputContainer = document.getElementById('outputContainer');
-            const outputText = document.getElementById('outputText');
-
-            if (!text) { alert("Paste some text!"); return; }
-
-            loading.classList.remove('hidden');
-            outputContainer.classList.add('hidden');
+            if (!text) return;
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('resArea').classList.add('hidden');
 
             try {
-                // VercelのAPIサーバーへ送信
-                const response = await fetch('/api/gist', {
+                const res = await fetch('/api/gist', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text, type })
                 });
-                const data = await response.json();
-                outputText.innerText = data.result;
-                outputContainer.classList.remove('hidden');
-            } catch (error) {
-                alert("Error happened!");
+                const data = await res.json();
+                
+                // バックエンドが必ず result を返すようにしたので、ここで undefined は起きない
+                document.getElementById('outputText').innerText = data.result;
+                document.getElementById('resArea').classList.remove('hidden');
+            } catch (e) {
+                alert("FATAL_ERROR");
             } finally {
-                loading.classList.add('hidden');
+                document.getElementById('loading').classList.add('hidden');
             }
-        }
-
-        function copyText() {
-            const text = document.getElementById('outputText').innerText;
-            navigator.clipboard.writeText(text).then(() => alert("Copied!"));
         }
     </script>
 </body>
