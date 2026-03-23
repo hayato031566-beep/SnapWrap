@@ -5,42 +5,39 @@ export default async function handler(req, res) {
   const { text, type } = req.body;
   const apiKey = process.env.GEMINI_API_KEY;
 
-  // 1.5 Flash（安定版）を使用
-  const model = "gemini-1.5-flash";
+  if (!apiKey) return res.status(500).json({ result: "Vercelの環境変数 GEMINI_API_KEY が未設定だぞ。" });
 
-  // 不自然な言葉（AI語）を禁止する超具体的な指示
-  const systemPrompt = type === 'summary' 
-    ? `
-      Tell me the core points of the text below. 
-      - STRICT RULES: 
-        1. NO "In summary," "Here are the points," or "The text discusses..." 
-        2. NO formal "AI-speak." 
-        3. Use plain, everyday English. 
-        4. Just state the facts directly. 
-      Text: ${text}`
-    : `
-      Based on the text, what should I do? 
-      - Give me exactly ONE concrete instruction. 
-      - Maximum 10 words. 
-      - NO "You should..." or "It is recommended to..." 
-      - Just the verb and the object (e.g., "Call the bank" or "Ignore the hype").
-      Text: ${text}`;
+  // Gemini 3 Flash の知能を活かすプロンプト
+  const prompt = type === 'summary' 
+    ? `Gemini 3 reasoning: Extract key points of this text in bullet points. Be concise and accurate: ${text}`
+    : `Gemini 3 reasoning: Based on this text, provide exactly ONE concrete 'Next Action' for the user: ${text}`;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+    // モデル名を 'gemini-3-flash-preview' に変更
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: systemPrompt }] }]
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2, // 精度重視（3.0の知能を活かす）
+          topP: 0.8,
+          maxOutputTokens: 2048,
+        }
       })
     });
 
     const data = await response.json();
-    const result = data.candidates[0].content.parts[0].text;
-    
-    // 前後の余計な空白や改行を削って返す
-    res.status(200).json({ result: result.trim() });
+
+    // 階層を正確に指定して undefined を防止
+    if (!data.candidates || !data.candidates[0]) {
+        throw new Error("Gemini 3 からの応答が空だ。APIキーかクォータを確認しろ。");
+    }
+
+    const aiResponse = data.candidates[0].content.parts[0].text;
+    res.status(200).json({ result: aiResponse });
+
   } catch (error) {
-    res.status(500).json({ result: "Error" });
+    res.status(500).json({ result: "AI 3.0 Error: " + error.message });
   }
 }
