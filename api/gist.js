@@ -7,25 +7,17 @@ export default async function handler(req, res) {
 
   if (!apiKey) return res.status(500).json({ result: "ERROR: KEY_MISSING" });
 
-  // お前が指定した「3.0」のIDを直書き
+  // 君が指定した最強エンジン：Gemini 3 Flash Preview
   const model = "gemini-3-flash-preview";
 
-  // indxスタイル：AIの喋りを物理的に殺すための最終命令
-  const brutalistPrompt = `
-    ### SYSTEM_INSTRUCTION:
-    - YOU ARE A RAW DATA ENGINE.
-    - NO SENTENCES. NO "IN SUMMARY". NO "THE NEXT STEP IS".
-    - STYLE: BRUTALIST, DIRECT, COLD.
-    - OUTPUT: RAW LABELS AND FACTS ONLY.
-    - MAX 5 WORDS PER LINE.
-    - ALL CAPS.
+  // indx.com風の指示をプロンプトの先頭に固定
+  const prompt = `
+[SYSTEM: RAW DATA ENGINE / GEMINI 3.0 / NO SENTENCES / NO FLUFF / ALL CAPS]
 
-    ### TASK:
-    ${type === 'summary' ? 'EXTRACT 3-5 CORE FACTS' : 'GIVE ONE URGENT COMMAND (VERB FIRST)'}
+TASK: ${type === 'summary' ? 'EXTRACT 3-5 CORE FACTS' : 'GIVE ONE URGENT COMMAND'}
+INPUT: ${text}
 
-    ### INPUT_DATA:
-    ${text}
-  `;
+OUTPUT:`;
 
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
@@ -33,10 +25,10 @@ export default async function handler(req, res) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{
-          parts: [{ text: brutalistPrompt }]
+          parts: [{ text: prompt }]
         }],
         generationConfig: {
-          temperature: 0.1, // 3.0の知能を正確に引き出す
+          temperature: 0.1,
           maxOutputTokens: 300,
         }
       })
@@ -44,20 +36,19 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    // API側からエラーが返ってきた場合の詳細表示
+    // APIエラーのハンドリング
     if (data.error) {
       return res.status(500).json({ result: `API_ERROR: ${data.error.message}` });
     }
 
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-      return res.status(500).json({ result: "ERROR: EMPTY_CANDIDATES" });
+    if (!data.candidates || !data.candidates[0]) {
+      return res.status(500).json({ result: "ERROR: EMPTY_RESPONSE" });
     }
 
     const result = data.candidates[0].content.parts[0].text;
-    res.status(200).json({ result: result.trim() });
+    res.status(200).json({ result: result.trim().toUpperCase() });
 
   } catch (error) {
-    // 通信エラーなどの場合
-    res.status(500).json({ result: `FETCH_ERROR: ${error.message}` });
+    res.status(500).json({ result: "FETCH_FAILURE" });
   }
 }
