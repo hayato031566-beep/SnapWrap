@@ -1,41 +1,77 @@
-<script>
-    async function execute(type) {
-        const text = document.getElementById('inputText').value;
-        if (!text) return;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GISTLIST / 3.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@900&display=swap');
+        body { background: #fff; color: #000; font-family: 'Inter', sans-serif; text-transform: uppercase; }
+        .b-border { border: 4px solid #000; border-radius: 0; }
+        .b-shadow { box-shadow: 4px 4px 0px 0px rgba(0,0,0,1); transition: all 0.05s; border-radius: 0; }
+        .b-shadow:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0px 0px rgba(0,0,0,1); }
+    </style>
+</head>
+<body class="p-4 md:p-12 max-w-4xl mx-auto min-h-screen">
 
-        const loading = document.getElementById('loading');
-        const outputText = document.getElementById('outputText');
-        const resArea = document.getElementById('resArea');
+    <header class="mb-12 border-b-8 border-black pb-4">
+        <h1 class="text-6xl md:text-9xl font-black tracking-tighter italic">GISTLIST</h1>
+        <p class="text-xs font-black mt-2">ENGINE: GEMINI_3.0_FLASH_PREVIEW (FREE_TIER)</p>
+    </header>
 
-        loading.classList.remove('hidden');
-        resArea.classList.add('hidden');
+    <main class="space-y-6">
+        <textarea id="inputText" class="w-full h-64 p-6 b-border text-2xl font-black focus:outline-none" placeholder="PASTE_TEXT_HERE"></textarea>
+        
+        <div class="grid grid-cols-2 gap-4">
+            <button onclick="run('summary')" class="b-shadow border-4 border-black py-6 text-2xl font-black">EXTRACT</button>
+            <button onclick="run('action')" class="b-shadow border-4 border-black py-6 text-2xl font-black bg-black text-white">ACTION</button>
+        </div>
 
-        try {
-            const res = await fetch('/api/gist', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text, type })
-            });
-            const data = await res.json();
-            
-            if (data.result) {
-                // 成功：そのまま表示
-                outputText.innerText = data.result;
-                resArea.classList.remove('hidden');
-            } else {
-                // 無料枠の制限（429エラー）が出た場合の処理
-                const errorMsg = data.error || "ENGINE_ERROR";
-                if (errorMsg.includes("quota")) {
-                    outputText.innerText = "RATE_LIMIT_HIT: PLEASE WAIT 5 SECONDS.";
+        <div id="loading" class="hidden font-black text-xl animate-pulse text-center py-10">ACCESSING_3.0_ENGINE...</div>
+
+        <div id="resArea" class="hidden space-y-4">
+            <div class="b-border p-8 bg-black text-white font-black text-3xl leading-none tracking-tighter">
+                <div id="outputText"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        async function run(type) {
+            const input = document.getElementById('inputText');
+            const outputText = document.getElementById('outputText');
+            const resArea = document.getElementById('resArea');
+            const loading = document.getElementById('loading');
+
+            if (!input.value) return;
+
+            loading.classList.remove('hidden');
+            resArea.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/gist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: input.value, type })
+                });
+                
+                const data = await res.json();
+                
+                // data.result があれば表示、なければエラーを表示
+                if (data.result) {
+                    outputText.innerText = data.result;
                 } else {
-                    outputText.innerText = "ERROR: " + errorMsg;
+                    outputText.innerText = "ERROR: " + (data.error || "ENGINE_FAILURE");
                 }
                 resArea.classList.remove('hidden');
+
+            } catch (e) {
+                alert("🚨 FATAL_ERROR: サーバーに届いてない。");
+            } finally {
+                loading.classList.add('hidden');
             }
-        } catch (e) {
-            alert("NETWORK_ERROR");
-        } finally {
-            loading.classList.add('hidden');
         }
-    }
-</script>
+    </script>
+</body>
+</html>
